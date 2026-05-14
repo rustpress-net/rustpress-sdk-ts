@@ -383,7 +383,7 @@ function generateTsConfig(): string {
   );
 }
 
-function generateReadme(name: string, className: string, projectType: ProjectType): string {
+function generateReadme(name: string, _className: string, projectType: ProjectType): string {
   return `# ${name}
 
 A RustPress ${projectType} built with the TypeScript SDK.
@@ -766,13 +766,14 @@ function main(): void {
   const command = args[0] || 'help';
 
   switch (command) {
-    case 'create':
-      if (args.length < 3) {
+    case 'create': {
+      if (args.length < 3 || !args[1] || !args[2]) {
         error('Usage: rustpress create <type> <name>');
         process.exit(1);
       }
       createProject(args[1], args[2]);
       break;
+    }
 
     case 'dev':
       runDev();

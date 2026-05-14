@@ -451,8 +451,11 @@ export interface HookRegistry {
 /**
  * Decorator for defining hook metadata
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- TS mixin
+// classes require a constructor with `...args: any[]` per the language
+// spec; tightening this to `unknown[]` triggers TS2545.
 export function Hook(metadata: HookMetadata) {
-  return function <T extends { new (...args: unknown[]): object }>(constructor: T) {
+  return function <T extends { new (...args: any[]): object }>(constructor: T) {
     return class extends constructor {
       static metadata = metadata;
     };
@@ -581,10 +584,19 @@ export interface PluginAssets {
 // App System
 // =============================================================================
 
+/**
+ * Renderable node returned by an App's `render()`.
+ *
+ * Kept framework-agnostic: the SDK does not depend on React. Hosts that
+ * use React can cast to `React.ReactNode`; non-React hosts can return
+ * any value the host renderer understands.
+ */
+export type AppNode = unknown;
+
 export interface App {
   id: string;
   metadata: AppMetadata;
-  render(): React.ReactNode;
+  render(): AppNode;
 }
 
 export interface AppMetadata {
@@ -763,10 +775,12 @@ export type MaybePromise<T> = T | Promise<T>;
 export function parseTrigger(trigger: string): TriggerComponents | null {
   const match = trigger.match(/^@@rustpress\.([^.]+)\.([^.]+)\.([^@]+)@@$/);
   if (!match) return null;
+  // The regex has three capture groups; if it matched, indices 1..3 are
+  // present strings. Cast through to satisfy TS's noUncheckedIndexedAccess.
   return {
-    plugin: match[1],
-    class: match[2],
-    method: match[3],
+    plugin: match[1] as string,
+    class: match[2] as string,
+    method: match[3] as string,
   };
 }
 
