@@ -67,13 +67,23 @@ describe('retry', () => {
     expect(fn).toHaveBeenCalledTimes(3);
   });
 
+  // When retry exhausts its attempts the final rejection lands on the
+  // microtask queue during vi.runAllTimersAsync(), BEFORE the test's
+  // `await expect(p).rejects.toThrow()` attaches its handler. Vitest then
+  // logs an "unhandled rejection" even though the test ultimately catches
+  // it. Pattern below avoids the race: capture the rejection by chaining
+  // `.catch(e => e)` so the promise resolves with the error value, then
+  // assert on it. Same idea for all four exhaustion tests.
+
   it('throws the last error after exhausting attempts', async () => {
     const fn = vi.fn(async () => {
       throw new Error('always-fails');
     });
-    const p = retry(fn, { attempts: 3, delay: 1 });
+    const p = retry(fn, { attempts: 3, delay: 1 }).catch((e: Error) => e);
     await vi.runAllTimersAsync();
-    await expect(p).rejects.toThrow('always-fails');
+    const err = await p;
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toBe('always-fails');
     expect(fn).toHaveBeenCalledTimes(3);
   });
 
@@ -81,9 +91,10 @@ describe('retry', () => {
     const fn = vi.fn(async () => {
       throw new Error('x');
     });
-    const p = retry(fn, { delay: 1 });
+    const p = retry(fn, { delay: 1 }).catch((e: Error) => e);
     await vi.runAllTimersAsync();
-    await expect(p).rejects.toThrow();
+    const err = await p;
+    expect(err).toBeInstanceOf(Error);
     expect(fn).toHaveBeenCalledTimes(3);
   });
 
@@ -92,9 +103,10 @@ describe('retry', () => {
       throw new Error('x');
     });
     // attempts=2, delay=10: should call -> sleep(10) -> call -> reject
-    const p = retry(fn, { attempts: 2, delay: 10 });
+    const p = retry(fn, { attempts: 2, delay: 10 }).catch((e: Error) => e);
     await vi.runAllTimersAsync();
-    await expect(p).rejects.toThrow();
+    const err = await p;
+    expect(err).toBeInstanceOf(Error);
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
@@ -103,9 +115,12 @@ describe('retry', () => {
       throw new Error('x');
     });
     // delays would be 1000, 2000, 4000, 8000... cap at 1500
-    const p = retry(fn, { attempts: 5, delay: 1000, maxDelay: 1500 });
+    const p = retry(fn, { attempts: 5, delay: 1000, maxDelay: 1500 }).catch(
+      (e: Error) => e
+    );
     await vi.runAllTimersAsync();
-    await expect(p).rejects.toThrow();
+    const err = await p;
+    expect(err).toBeInstanceOf(Error);
     expect(fn).toHaveBeenCalledTimes(5);
   });
 
